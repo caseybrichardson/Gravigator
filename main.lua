@@ -1,6 +1,8 @@
 require("constants")
 require("utils")
 
+io.stdout:setvbuf "no"
+
 local screenSize = {1024, 768}
 local screenCenter = {screenSize[1] / 2, screenSize[2] / 2}
 
@@ -17,6 +19,8 @@ local move = 0
 local playerSliceDeg = 3
 local playerSlice = deg2rad(playerSliceDeg)
 local currentOverlap = 0
+local score = 0
+local scorePerSecond = 1000
 
 local starStart = 0
 local starTime = 10
@@ -25,10 +29,11 @@ local starSize = 255 / 2
 
 local checkpointStart = 0
 local checkpointTime = 10
-local checkpointTarget = 90
+local checkpointTargetDeg = nil
+local checkpointTarget = nil
 local checkpointProgress = 0
 local checkpointAngleDeg = 0
-local checkpointFinalAngleDeg = 10
+local checkpointFinalAngleDeg = 30
 
 local distance = 0
 local direction = 1
@@ -37,10 +42,10 @@ local controlSlop = 0.075  -- Affects how long it takes for movement to stop
 
 
 function love.load()
-	love.window.setTitle("Generational Epochs")
-	love.window.setMode(screenSize[1], screenSize[2])
+	-- love.window.setTitle("Generational Epochs")
+	love.window.setMode(screenSize[1], screenSize[2], {resizable=true, display=2})
 	
-	textFont = love.graphics.newFont("assets/fonts/JetBrainsMono-Bold.ttf")
+	textFont = love.graphics.newFont("assets/fonts/JetBrainsMono-Bold.ttf", 32)
 	ship = love.graphics.newImage("assets/images/shipsmall.png")
 	
 	starStart = love.timer.getTime()
@@ -70,7 +75,7 @@ function getOverlap(playerAngle, playerWidth, targetAngle, targetWidth)
 		return (playerRight - targetLeft) / playerWidth
 	elseif playerLeft >= targetLeft and playerLeft <= targetRight and playerRight > targetRight then
 		-- Player left overlap
-		return (playerLeft - targetRight) / playerWidth
+		return (targetRight - playerLeft) / playerWidth
 	else
 		-- No overlap
 		return 0
@@ -139,15 +144,22 @@ function love.update()
 	
 	-- Check if our checkpoint is expired
 	checkpointElapsed = t - checkpointStart
-	if checkpointElapsed > checkpointTime then
+	if checkpointTargetDeg == nil or checkpointElapsed > checkpointTime then
 		checkpointStart = t
-		checkpointTarget = deg2rad(randomDegree())
+		checkpointTargetDeg = randomDegree()
+		checkpointTarget = deg2rad(checkpointTargetDeg)
 		checkpointProgress = 0
 		checkpointAngleDeg = 0
 	else
 		checkpointProgress = checkpointElapsed / checkpointTime
 		checkpointAngleDeg = lerp(0, checkpointFinalAngleDeg, checkpointProgress)
 	end
+	
+	-- Calculate overlap after updating user location and checkpoint location
+	currentOverlap = getOverlap(degBalance, playerSliceDeg, checkpointTargetDeg, checkpointAngleDeg)
+	
+	-- Add our score modifying with current overlap
+	score = score + math.floor(scorePerSecond * dt * currentOverlap)
 	
 	-- Update our star progress
 	starElapsed = t - starStart
@@ -160,21 +172,22 @@ function love.update()
 end
 
 
-function drawBalance(current, target, targetWidth, radius)
+function drawBalance(current, target, targetWidth, radius, bottom)
 	radius = radius or 100
 	-- UI thing to indicate gravity beam balance
 	p = math.pi
-	bottom = screenSize[2] + 1
 	progress = deg2rad(targetWidth) / 2
 	love.graphics.setColor(PURPLE)
-	love.graphics.arc("line", screenCenter[1], bottom, radius, p, 2 * p)
+	love.graphics.arc("line", "open", screenCenter[1], bottom, radius, p, 2 * p)
 	love.graphics.arc("line", screenCenter[1], bottom, radius, -deg2rad(165), -deg2rad(15))
 	
-	love.graphics.setColor(PURPLE_BLUE)
-	love.graphics.arc("fill", screenCenter[1], bottom, radius - 5, -target + (progress), -target - (progress))
+	if target ~= nil then
+		love.graphics.setColor(PURPLE_BLUE)
+		love.graphics.arc("fill", screenCenter[1], bottom, radius - 8, -target + (progress), -target - (progress))
+	end
 	
 	love.graphics.setColor(PURPLE)
-	love.graphics.arc("fill", screenCenter[1], bottom, radius - 10, -current + playerSlice, -current - playerSlice)
+	love.graphics.arc("fill", screenCenter[1], bottom, radius - 21, -current + playerSlice, -current - playerSlice)
 end
 
 function drawStar(t)
@@ -193,17 +206,20 @@ function love.draw()
 	-- love.graphics.print("Hello", textFont, shipX, 300, 0, 1, 1)
 	love.graphics.rectangle("fill", shipX - 50, screenSize[2] - screenCenter[2], 100, 200)
 	love.graphics.draw(ship, shipX - 50, shipY)
-	drawBalance(radBalance, checkpointTarget, checkpointAngleDeg, 150)
-	-- love.graphics.print(degBalance, textFont, 10, screenSize[2] - 30, 0, 1, 1)
-	-- love.graphics.print(balance, textFont, 10, screenSize[2] - 60, 0, 1, 1)
-	love.graphics.print(getOverlap(degBalance, playerSliceDeg, checkpointTarget, checkpointAngleDeg), textFont, 10, screenSize[2] - 90, 0, 1, 1)
-	if direction == moveDirection then
-		love.graphics.print("fight", textFont, 10, screenSize[2] - 70, 0, 1, 1)
-	else
-		love.graphics.print("easy", textFont, 10, screenSize[2] - 70, 0, 1, 1)
-	end
+	drawBalance(radBalance, checkpointTarget, checkpointAngleDeg, 150, screenSize[2])
+	
+	love.graphics.print(score, textFont, 10, screenSize[2] - 40, 0, 1, 1)
+	love.graphics.print(currentOverlap, textFont, 10, screenSize[2] - 80, 0, 1, 1)
+	-- if direction == moveDirection then
+	-- 	love.graphics.print("fight", textFont, 10, screenSize[2] - 40, 0, 1, 1)
+	-- else
+	-- 	love.graphics.print("easy", textFont, 10, screenSize[2] - 40, 0, 1, 1)
+	-- end
 end
 
 function love.resize(w, h)
-	
+	screenSize = {w, h}
+	screenCenter = {screenSize[1] / 2, screenSize[2] / 2}
+	shipMoveBounds = {screenCenter[1] - moveLimit, screenCenter[1] + moveLimit}
+	shipY = screenSize[2] / 2
 end
