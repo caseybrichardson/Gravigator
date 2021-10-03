@@ -21,7 +21,7 @@ function clamp(value, min, max)
 		return value, false
 	elseif value < min then
 		return min, true
-	else
+	elseif value > max then
 		return max, true
 	end
 end
