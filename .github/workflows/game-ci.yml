@@ -7,12 +7,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_game:
+  Build-Game:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Checkout LFS objects
+        run: git lfs checkout
+      - name: Checkout submodules
+        uses: textbook/git-checkout-submodule-action@master
       - uses: nhartland/love-build@v1-beta2
+        id: love-build
         with:
          app_name: 'Gravigator'
          love_version: '11.3'
