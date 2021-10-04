@@ -312,7 +312,7 @@ function transit:scaleDifficulty(level)
 	self.checkpointTransitionTime = 4 - (0.3 * mod)
 	self.starTime = 120 + (15 * mod)
 	self.boostMaxDuration = 10 - (2 * mod)
-	self.controlSlop = clamp(0, 0, 0.05) -- Affects how long it takes for movement to stop
+	self.controlSlop = clamp(0.05 - (0.01 * mod), 0, 0.05) -- Affects how long it takes for movement to stop
 	self.slipSpeed = 2
 end
 
