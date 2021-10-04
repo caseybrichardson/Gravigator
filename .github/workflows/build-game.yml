@@ -1,7 +1,7 @@
 name: Build LOVE2D Game
 on: [push]
 jobs:
-	build_game:
+	- build_game:
 		- uses: actions/checkout@v2
 		# Build the applications
 		- uses: nhartland/love-build@v1-beta2
