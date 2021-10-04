@@ -94,7 +94,7 @@ function transit:init()
 	self.shake = false
 	self.shakeMagnitude = 5
 	self.shipHealth = 100
-	self.shipDamageRate = 2
+	self.shipDamageRate = 10
 	
 	self.playerSliceDeg = 6
 	self.playerSlice = deg2rad(self.playerSliceDeg)
@@ -105,6 +105,7 @@ function transit:init()
 	self.scorePerSecond = 1000
 	self.souls = 1000000000
 	
+	self.starElapsed = 0
 	self.starStart = 0
 	self.starTime = 120
 	self.starProgress = 0
@@ -118,6 +119,9 @@ function transit:init()
 	self.checkpointMinAngleDeg = 9
 	self.checkpointAngleDeg = 0
 	self.checkpointFinalAngleDeg = 30
+	self.boostStartTime = 0
+	self.boostCurrentDuration = 0
+	self.boostMaxDuration = 10
 	
 	self.checkpointTransitionTime = 4
 	self.nextCheckpointTargetDeg = nil
@@ -218,12 +222,26 @@ function transit:trackCheckpoints(dt)
 		local wasNil = self.checkpointTargetDeg == nil 
 		local tComplete = self.checkpointElapsed > self.checkpointTime
 		if wasNil and tComplete then
+			if self.currentOverlap ~= 0 then
+				self.boostCurrentDuration = self.boostMaxDuration * self.currentOverlap
+				self.boostStartTime = t
+			else
+				self.shipHealth = self.shipHealth - self.shipDamageRate
+			end
+			
 			self.checkpointStart = t
 			self.checkpointTargetDeg = randomDegree()
 			self.checkpointTarget = deg2rad(self.checkpointTargetDeg)
 			self.checkpointProgress = 0
 			self.checkpointAngleDeg = self.checkpointMinAngleDeg
 		elseif not wasNil and tComplete then
+			if self.currentOverlap ~= 0 then
+				self.boostCurrentDuration = self.boostMaxDuration * self.currentOverlap
+				self.boostStartTime = t
+			else
+				self.shipHealth = self.shipHealth - self.shipDamageRate
+			end
+			
 			-- Kickoff the transition
 			self.nextCheckpointTargetDeg = randomDegree()
 			self.nextCheckpointTarget = deg2rad(self.nextCheckpointTargetDeg)
@@ -256,6 +274,11 @@ function transit:trackCheckpoints(dt)
 	end
 end
 
+function transit:isBoosting()
+	local t = love.timer.getTime()
+	return t - self.boostStartTime < self.boostCurrentDuration
+end
+
 function transit:update(dt)
 	local leftPressed = love.keyboard.isDown("a")
 	local rightPressed = love.keyboard.isDown("d")
@@ -282,7 +305,6 @@ function transit:update(dt)
 	if self.direction ~= 0 then
 		local mod = self.distance / self.moveLimit
 		local mult = easing.outExpo(mod, 1, 3, 1)
-		print("test: ", mod, " ", mult)
 		nextMove = nextMove + (-self.direction * self.slipSpeed * mult * dt)
 	end
 	
@@ -335,15 +357,6 @@ function transit:update(dt)
 	-- Add our score modifying with current overlap
 	self.score = self.score + math.floor(self.scorePerSecond * dt * self.currentOverlap)
 	
-	-- Update our star progress
-	self.starElapsed = t - self.starStart
-	if self.starElapsed > self.starTime then
-		self.starStart = t
-		self.starProgress = 0
-	else
-		self.starProgress = self.starElapsed / self.starTime
-	end
-	
 	-- Update particle systems
 	for i=1,self.numExhausts,1 do
 		self.exhaustParticles[i]:update(dt)
@@ -353,8 +366,47 @@ function transit:update(dt)
 		self.starParticles[i]:update(dt)
 	end
 	
+	local boostMult = 1
+	if self:isBoosting() then
+		boostMult = 10
+		
+		for i=1,self.numExhausts,1 do
+			self.exhaustParticles[i]:setSpeed(750)
+			self.exhaustParticles[i]:setSizes(1.75)
+		end
+		
+		for i=1,self.numStreaks,1 do
+			self.starParticles[i]:setSpeed(1000)
+		end
+	else
+		for i=1,self.numExhausts,1 do
+			self.exhaustParticles[i]:setSpeed(500 + love.math.random(-100, 100))
+			self.exhaustParticles[i]:setSizes(1)
+		end
+		
+		for i=1,self.numStreaks,1 do
+			self.starParticles[i]:setSpeed(500 + love.math.random(-100, 100))
+		end
+	end
+	
+	-- Update our star progress
+	self.starElapsed = self.starElapsed + dt * boostMult
+	-- self.starElapsed = t - self.starStart
+	if self.starElapsed > self.starTime then
+		self.starStart = t
+		self.starProgress = 0
+		self.starElapsed = 0
+	else
+		self.starProgress = self.starElapsed / self.starTime
+	end
+	
+	-- Boosting in the danger zones does more damage
+	if self:isBoosting() and self.shake then
+		self.shipHealth = self.shipHealth - self.shipDamageRate * dt
+	end
+	
 	-- Update time dependent animation stuff
-	self.starProgress = self.starProgress + 0.005
+	-- self.starProgress = self.starProgress + 0.005 * boostMult
 	self.wheelAngle = deg2rad((t - self.startTime) * 50 % 360)
 end
 
@@ -367,18 +419,22 @@ function drawBalance(x, y, current, currentWidth, target, targetWidth, radius, l
 	local p = math.pi
 	cProgress = deg2rad(currentWidth) / 2
 	tProgress = deg2rad(targetWidth) / 2
-	love.graphics.setColor(WHITE)
+	love.graphics.setColor(BLUE)
 	love.graphics.arc("fill", "open", x, y, radius + 3, p, 2 * p)
-	love.graphics.setColor(PURPLE)
+	love.graphics.setColor(PURPLE_BLUE)
 	love.graphics.arc("line", "open", x, y, radius, p, 2 * p)
-	love.graphics.arc("line", x, y, radius, -deg2rad(l), -deg2rad(r))
+	love.graphics.setColor(ORANGE)
+	love.graphics.arc("fill", x, y, radius, -deg2rad(180), -deg2rad(165))
+	love.graphics.arc("fill", x, y, radius, -deg2rad(15), -deg2rad(0))
+	love.graphics.setColor(PURPLE_BLUE)
+	love.graphics.arc("line", x, y, radius - 1, -deg2rad(l), -deg2rad(r))
 	
 	if target ~= nil then
 		love.graphics.setColor(PURPLE_BLUE)
 		love.graphics.arc("fill", x, y, radius - 8, -target + (tProgress), -target - (tProgress))
 	end
 	
-	love.graphics.setColor(PURPLE)
+	love.graphics.setColor(YELLOW)
 	love.graphics.arc("fill", x, y, radius - 21, -current + cProgress, -current - cProgress)
 end
 
@@ -391,6 +447,19 @@ function drawStar(x, y, t, startRadius, growRadius)
 	
 	-- This makes it easier during dev to tell how far along the level is
 	-- love.graphics.circle("line", x, y, 150)
+end
+
+function drawElapsed(x, y, w, h, t)
+	love.graphics.setColor(YELLOW)
+	love.graphics.rectangle("fill", x, y, w * t, h)
+	love.graphics.setColor(BLUE)
+	love.graphics.rectangle("line", x, y, w, h)
+end
+
+function drawHealth(x, y, w, h, t)
+	love.graphics.setColor(GREEN)
+	love.graphics.rectangle("fill", x, y, w * t, h)
+	love.graphics.rectangle("line", x, y, w, h)
 end
 
 function transit:drawShip(x, y, r)
@@ -490,11 +559,18 @@ function transit:draw()
 	
 	drawBalance(cx, h, self.radBalance, self.playerSliceDeg, self.checkpointTarget, self.checkpointAngleDeg)
 	
+	drawElapsed(0, 0, w, 15, self.starProgress)
+	drawHealth(0, 15, w, 15, self.shipHealth / 100)
+	
 	local souls = string.format("Souls: %s", self.souls)
-	love.graphics.print(souls, self.textFont, 10, 10, 0, 1, 1)
+	love.graphics.print(souls, self.textFont, 10, 35, 0, 1, 1)
 	
 	local score = string.format("Score: %s", self.score)
-	love.graphics.print(score, self.textFont, 10, 35, 0, 1, 1)
+	love.graphics.print(score, self.textFont, 10, 60, 0, 1, 1)
+	
+	if self:isBoosting() then
+		love.graphics.print("BOOST ACTIVE", self.textFont, 10, 85, 0, 1, 1)
+	end
 end
 
 
