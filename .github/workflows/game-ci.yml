@@ -11,29 +11,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: "actions/checkout@v2"
-		  - uses: "nhartland/love-build@v1-beta2"
+      - uses: actions/checkout@v2
+      - uses: nhartland/love-build@v1-beta2
         with:
          app_name: 'Gravigator'
          love_version: '11.3'
       # Upload the built applications
       - uses: actions/upload-artifact@v1
         with:
-        name: built-applications
-        path: 'release'
+          name: built-applications
+          path: 'release'
       - uses: actions/upload-artifact@v1
         with:
-        name: macos-build
-        path: ${{ steps.love-build.outputs.macos-filename }}
+          name: macos-build
+          path: ${{ steps.love-build.outputs.macos-filename }}
       - uses: actions/upload-artifact@v1
         with:
-        name: win32-build
-        path: ${{ steps.love-build.outputs.win32-filename }}
+          name: win32-build
+          path: ${{ steps.love-build.outputs.win32-filename }}
       - uses: actions/upload-artifact@v1
         with:
-        name: win64-build
-        path: ${{ steps.love-build.outputs.win64-filename }}
+          name: win64-build
+          path: ${{ steps.love-build.outputs.win64-filename }}
       - uses: actions/upload-artifact@v1
         with:
-        name: love-build
-        path: ${{ steps.love-build.outputs.love-filename }}
+          name: love-build
+          path: ${{ steps.love-build.outputs.love-filename }}
