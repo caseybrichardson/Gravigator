@@ -8,5 +8,5 @@ io.stdout:setvbuf "no"
 
 function love.load()
 	Gamestate.registerEvents()
-	Gamestate.switch(transit)
+	Gamestate.switch(intro)
 end

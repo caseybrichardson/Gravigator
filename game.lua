@@ -16,7 +16,7 @@ function intro:init()
 	self.displayFor = 3.5
 	
 	self.textFont = love.graphics.newFont("assets/fonts/JetBrainsMono-Bold.ttf", 32)
-	self.displayText = "I made this"
+	self.displayText = "Made by: grimmpaperman"
 	self.textWidth = self.textFont:getWidth(self.displayText)
 	
 	self.effect = moonshine(moonshine.effects.godsray)
@@ -24,6 +24,12 @@ function intro:init()
 	self.effect.godsray.light_x = 0.25
 	self.effect.godsray.exposure = 0.1
 	-- self.effect.godsray.light_y = 
+end
+
+function intro:keyreleased(key, code)
+	if key == "return" then
+		Gamestate.switch(menu)
+	end
 end
 
 function intro:update(dt)
@@ -55,20 +61,128 @@ function menu:init()
 	self.screenCenter = {self.screenSize[1] / 2, self.screenSize[2] / 2}
 	
 	self.textFont = love.graphics.newFont("assets/fonts/JetBrainsMono-Bold.ttf", 32)
+	
+	self.firstLoad = true
+	self.messageIdx = 1
+	self.messages = {
+		"You are our sole hope Gravigator. Your abilities allows us to navigate the gravity waves between star systems. Our resources are dwindling, and we've woken you to help us. Get us to our next destination as safely as possible.",
+		"Your past efforts allowed us to survive another millenia, but our consumption has peaked again. We've awoken you to get us to another system with resources.",
+		"Our hunger is growing, and we've exhausted even many resources within reach. This next journey may be our end if you cannot navigate us safely. ",
+		"Your abilities have kept our species alive for millenia now. The distances we must travel due to resource exhaustion only increase with time. The challenges grow mightier."
+	}
+	
+	self.noMas = "Congratulations! Enter your serial code to continue playing:"
+end
+
+function menu:enter(last, params)
+	params = params or {restart=false}
+	
+	if params.restart then
+		self.messageIdx = 1
+		self.firstLoad = true
+	end
+	
+	if self.firstLoad then
+		print("Entering menu for the first time")
+		self.firstLoad = false
+	else
+		print("Entering menu again")
+		self.messageIdx = self.messageIdx + 1
+	end
 end
 
 function menu:keyreleased(key, code)
 	if key == "return" then
-		Gamestate.switch(transit)
+		Gamestate.switch(transit, {level=self.messageIdx})
 	end
 end
 
 function menu:draw()
-	local cx, cy
+	local cx, cy, w, h
+	w, h = unpack(self.screenSize)
 	cx, cy = unpack(self.screenCenter)
-	local displayText = "Hit Enter"
-	local textWidth = self.textFont:getWidth(displayText)
-	love.graphics.print(displayText, self.textFont, cx - (textWidth / 2), cy - 32, 0, 1, 1)
+	local displayText
+	if self.messageIdx > #self.messages then
+		displayText = self.noMas
+	else
+		displayText = self.messages[self.messageIdx]
+	end
+	love.graphics.setColor(ORANGE)
+	love.graphics.printf(displayText, self.textFont, 50, cy / 1.5, w - 100, "center")
+	
+	local enterText = "Press Enter to Gravigate"
+	local textWidth = self.textFont:getWidth(enterText)
+	love.graphics.setColor(WHITE)
+	love.graphics.print(enterText, self.textFont, cx - textWidth/2, h - 60, 0, 1, 1)
+end
+
+congrats = {}
+
+function congrats:init()
+	local w, h
+	w, h = love.window.getMode()
+	self.screenSize = {w, h}
+	self.screenCenter = {self.screenSize[1] / 2, self.screenSize[2] / 2}
+	
+	self.textFont = love.graphics.newFont("assets/fonts/JetBrainsMono-Bold.ttf", 32)
+end
+
+function congrats:enter()
+	self.startTime = love.timer.getTime()
+end
+
+function congrats:keyreleased(key, code)
+	if key == "return" then
+		Gamestate.switch(menu)
+	end
+end
+
+function congrats:draw()
+	local cx, cy, w, h
+	w, h = unpack(self.screenSize)
+	cx, cy = unpack(self.screenCenter)
+	
+	local displayText = "Mission Success! Your species survives for another millenia."
+	love.graphics.setColor(ORANGE)
+	love.graphics.printf(displayText, self.textFont, 50, cy / 1.5, w - 100, "center")
+	
+	local tryAgainText = "Try Again (Enter)"
+	local tryAgainWidth = self.textFont:getWidth(tryAgainText)
+	love.graphics.setColor(WHITE)
+	love.graphics.print(tryAgainText, self.textFont, cx - tryAgainWidth/2, h - 60, 0, 1, 1)
+end
+
+gameOver = {}
+
+function gameOver:init()
+	local w, h
+	w, h = love.window.getMode()
+	self.screenSize = {w, h}
+	self.screenCenter = {self.screenSize[1] / 2, self.screenSize[2] / 2}
+	
+	self.textFont = love.graphics.newFont("assets/fonts/JetBrainsMono-Bold.ttf", 32)
+end
+
+function gameOver:keyreleased(key, code)
+	if key == "return" then
+		Gamestate.switch(menu, {restart=true})
+	end
+end
+
+function gameOver:draw()
+	local cx, cy, w, h
+	w, h = unpack(self.screenSize)
+	cx, cy = unpack(self.screenCenter)
+	
+	local displayText = "Your Species Has Perished"
+	local displayWidth = self.textFont:getWidth(displayText)
+	love.graphics.setColor(ORANGE)
+	love.graphics.print(displayText, self.textFont, cx - displayWidth/2, cy - 20, 0, 1, 1)
+	
+	local tryAgainText = "Try Again (Enter)"
+	local tryAgainWidth = self.textFont:getWidth(tryAgainText)
+	love.graphics.setColor(WHITE)
+	love.graphics.print(tryAgainText, self.textFont, cx - tryAgainWidth/2, h - 60, 0, 1, 1)
 end
 
 transit = {}
@@ -80,6 +194,7 @@ function transit:init()
 	w, h = love.window.getMode()
 	self.screenSize = {w, h}
 	self.screenCenter = {self.screenSize[1] / 2, self.screenSize[2] / 2}
+	self.level = 1
 	
 	self.moveLimit = 200
 	
@@ -189,6 +304,33 @@ function transit:init()
 	self.effect.vignette.radius = 0.6
 end
 
+function transit:scaleDifficulty(level)
+	local mod = level - 1
+	self.moveSpeed = 15 + (10 * mod)
+	self.shipDamageRate = 10 + (5 * mod)
+	self.checkpointTime = 1 - (0.05 * mod)
+	self.checkpointTransitionTime = 4 - (0.3 * mod)
+	self.starTime = 120 + (15 * mod)
+	self.boostMaxDuration = 10 - (2 * mod)
+	self.controlSlop = clamp(0, 0, 0.05) -- Affects how long it takes for movement to stop
+	self.slipSpeed = 2
+end
+
+function transit:enter(last, params)
+	params = params or {level=1}
+	self.level = params.level
+	self:scaleDifficulty(params.level)
+	self.starStart = love.timer.getTime()
+	self.starElapsed = 0
+	self.shipHealth = 100
+	self.boostStartTime = 0
+	self.boostCurrentDuration = 0
+	self.nextCheckpointTarget = nil
+	self.checkpointTargetDeg = nil
+	self.shipX = self.screenSize[1] / 2
+	self.shipY = self.screenSize[2] / 1.75
+end
+
 function transit:getOverlap(playerAngle, playerWidth, targetAngle, targetWidth)
 	local targetBound = targetWidth / 2
 	local targetLeft = targetAngle - targetBound
@@ -222,12 +364,12 @@ function transit:trackCheckpoints(dt)
 		local wasNil = self.checkpointTargetDeg == nil 
 		local tComplete = self.checkpointElapsed > self.checkpointTime
 		if wasNil and tComplete then
-			if self.currentOverlap ~= 0 then
-				self.boostCurrentDuration = self.boostMaxDuration * self.currentOverlap
-				self.boostStartTime = t
-			else
-				self.shipHealth = self.shipHealth - self.shipDamageRate
-			end
+			-- if self.currentOverlap ~= 0 then
+			-- 	self.boostCurrentDuration = self.boostMaxDuration * self.currentOverlap
+			-- 	self.boostStartTime = t
+			-- else
+			-- 	self.shipHealth = self.shipHealth - self.shipDamageRate
+			-- end
 			
 			self.checkpointStart = t
 			self.checkpointTargetDeg = randomDegree()
@@ -393,16 +535,24 @@ function transit:update(dt)
 	self.starElapsed = self.starElapsed + dt * boostMult
 	-- self.starElapsed = t - self.starStart
 	if self.starElapsed > self.starTime then
-		self.starStart = t
-		self.starProgress = 0
-		self.starElapsed = 0
+		-- self.starStart = t
+		-- self.starProgress = 0
+		-- self.starElapsed = 0
+		Gamestate.switch(congrats)
 	else
 		self.starProgress = self.starElapsed / self.starTime
 	end
 	
-	-- Boosting in the danger zones does more damage
 	if self:isBoosting() and self.shake then
+		-- Boosting in the danger zones does more damage
+		self.shipHealth = self.shipHealth - self.shipDamageRate * 2 * dt
+	elseif self.shake then
+		-- If shaking just do normal damage
 		self.shipHealth = self.shipHealth - self.shipDamageRate * dt
+	end
+	
+	if self.shipHealth <= 0 then
+		Gamestate.switch(gameOver)
 	end
 	
 	-- Update time dependent animation stuff
@@ -440,13 +590,13 @@ end
 
 function drawStar(x, y, t, startRadius, growRadius)
 	startRadius = starRadius or 75
-	growRadius = growRadius or 75
+	growRadius = growRadius or 120
 	local currentRadius = lerp(startRadius, startRadius + growRadius, t)
 	love.graphics.setColor(PINK)
 	love.graphics.circle("fill", x, y, currentRadius)
 	
 	-- This makes it easier during dev to tell how far along the level is
-	-- love.graphics.circle("line", x, y, 150)
+	-- love.graphics.circle("line", x, y, startRadius + growRadius)
 end
 
 function drawElapsed(x, y, w, h, t)
@@ -567,6 +717,10 @@ function transit:draw()
 	
 	local score = string.format("Score: %s", self.score)
 	love.graphics.print(score, self.textFont, 10, 60, 0, 1, 1)
+	
+	local level = string.format("Year: %s", self.level * 1000)
+	local levelWidth = self.textFont:getWidth(level)
+	love.graphics.print(level, self.textFont, w - 10 - levelWidth, 35, 0, 1, 1)
 	
 	if self:isBoosting() then
 		love.graphics.print("BOOST ACTIVE", self.textFont, 10, 85, 0, 1, 1)
