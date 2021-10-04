@@ -1,6 +1,7 @@
 Gamestate = require("gamestate")
 local moonshine = require("moonshine")
 require("utils")
+local easing = require("easing")
 
 
 intro = {}
@@ -92,6 +93,8 @@ function transit:init()
 	self.move = 0
 	self.shake = false
 	self.shakeMagnitude = 5
+	self.shipHealth = 100
+	self.shipDamageRate = 2
 	
 	self.playerSliceDeg = 6
 	self.playerSlice = deg2rad(self.playerSliceDeg)
@@ -124,7 +127,8 @@ function transit:init()
 	self.checkpointTransitionProgress = 0
 	
 	self.distance = 0
-	self.direction = 0
+	-- Direction will be -1 or 1 on start. Truly unbalanced. If it was 0 we could just sit in the middle with no input.
+	self.direction = love.math.random() > 0.5 and -1 or 1  -- Wow I dislike lua's "ternary" operator
 	self.moveDifficulty = 0  -- Affects movement ability more the close to 1 this is
 	self.controlSlop = 0.05  -- Affects how long it takes for movement to stop
 	
@@ -276,7 +280,9 @@ function transit:update(dt)
 	end
 	
 	if self.direction ~= 0 then
-		local mult = self.distance / 90 * 2
+		local mod = self.distance / self.moveLimit
+		local mult = easing.outExpo(mod, 1, 3, 1)
+		print("test: ", mod, " ", mult)
 		nextMove = nextMove + (-self.direction * self.slipSpeed * mult * dt)
 	end
 	
@@ -294,18 +300,18 @@ function transit:update(dt)
 		end
 	end
 	
+	-- If we clamp our movement, then set it to 0, otherwise it's impossible to move
 	if clamped then
 		self.move = 0
 	end
 	
-	self.starProgress = self.starProgress + 0.005
-	
+	-- 
 	if self.shipX < self.screenCenter[1] then
 		self.distance = self.screenCenter[1] - self.shipX
-		self.direction = 1
+		self.direction = 1  -- Should be -1 but I locked in because of angle oddities
 	elseif self.shipX > self.screenCenter[1] then
 		self.distance = self.shipX - self.screenCenter[1]
-		self.direction = -1
+		self.direction = -1  -- Should be 1 but I locked in because of angle oddities
 	else
 		self.distance = 0
 		self.direction = 0
@@ -338,6 +344,7 @@ function transit:update(dt)
 		self.starProgress = self.starElapsed / self.starTime
 	end
 	
+	-- Update particle systems
 	for i=1,self.numExhausts,1 do
 		self.exhaustParticles[i]:update(dt)
 	end
@@ -346,6 +353,8 @@ function transit:update(dt)
 		self.starParticles[i]:update(dt)
 	end
 	
+	-- Update time dependent animation stuff
+	self.starProgress = self.starProgress + 0.005
 	self.wheelAngle = deg2rad((t - self.startTime) * 50 % 360)
 end
 
@@ -358,6 +367,8 @@ function drawBalance(x, y, current, currentWidth, target, targetWidth, radius, l
 	local p = math.pi
 	cProgress = deg2rad(currentWidth) / 2
 	tProgress = deg2rad(targetWidth) / 2
+	love.graphics.setColor(WHITE)
+	love.graphics.arc("fill", "open", x, y, radius + 3, p, 2 * p)
 	love.graphics.setColor(PURPLE)
 	love.graphics.arc("line", "open", x, y, radius, p, 2 * p)
 	love.graphics.arc("line", x, y, radius, -deg2rad(l), -deg2rad(r))
@@ -386,7 +397,7 @@ function transit:drawShip(x, y, r)
 	local cx, cy, w, h
 	cx, cy = unpack(self.screenCenter)
 	w, h = unpack(self.screenSize)
-	love.graphics.setColor({1, 1, 1})
+	love.graphics.setColor(WHITE)
 	
 	-- Drawing the rotating wheel
 	local ww, wh, wx, wy, fx, fy
@@ -421,7 +432,7 @@ function transit:drawShip(x, y, r)
 	
 	for i=1,self.numExhausts,1 do
 		local px, py
-		px, py = love.graphics.transformPoint(-sw + sx + i * (sw / 5), sh - 20)
+		px, py = love.graphics.transformPoint(-sw + sx + i * (sw / 5), sh - 27.5)
 	 	points[i] = {px, py}
 	end
 	love.graphics.rotate(-(self.radBalance - math.pi / 2))
@@ -430,7 +441,6 @@ function transit:drawShip(x, y, r)
 	for i = 1, self.numExhausts,1 do
 		self.exhaustParticles[i]:setDirection(self.radBalance)
 		love.graphics.draw(self.exhaustParticles[i], unpack(points[i]))
-		print(points[i][1], " ", points[i][2])
 	end
 end
 
@@ -442,7 +452,7 @@ function transit:draw()
 	local dx = love.math.random(-self.shakeMagnitude, self.shakeMagnitude)
 	local dy = love.math.random(-self.shakeMagnitude, self.shakeMagnitude)
 	
-	love.graphics.setColor({1, 1, 1})
+	love.graphics.setColor(WHITE)
 	self.effect(function()
 		for i=1,self.numStreaks,1 do
 			love.graphics.draw(self.starParticles[i], cx, cy)
@@ -470,7 +480,13 @@ function transit:draw()
 	-- sw, sh = unpack(self.shipWheelSize)
 	-- sw = sw / 2
 	-- sh = sh / 2
+	if self.shake then
+		love.graphics.translate(-dx, dy)
+	end
 	self:drawShip(self.shipX, self.shipY, self.wheelAngle)
+	if self.shake then
+		love.graphics.translate(dx, -dy)
+	end
 	
 	drawBalance(cx, h, self.radBalance, self.playerSliceDeg, self.checkpointTarget, self.checkpointAngleDeg)
 	
