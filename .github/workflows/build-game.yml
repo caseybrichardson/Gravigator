@@ -1,31 +1,31 @@
 name: Build LOVE2D Game
 on: [push]
 jobs:
-  Build-Game-Actoins:
-	- uses: actions/checkout@v2
-	# Build the applications
-	- uses: nhartland/love-build@v1-beta2
-	  with:
-	   app_name: 'Gravigator'
-	   love_version: '11.3'
-	# Upload the built applications
-	- uses: actions/upload-artifact@v1
-	  with:
-		name: built-applications
-		path: 'release'
-	- uses: actions/upload-artifact@v1
-	  with:
-		name: macos-build
-		path: ${{ steps.love-build.outputs.macos-filename }}
-	- uses: actions/upload-artifact@v1
-	  with:
-		name: win32-build
-		path: ${{ steps.love-build.outputs.win32-filename }}
-	- uses: actions/upload-artifact@v1
-	  with:
-		name: win64-build
-		path: ${{ steps.love-build.outputs.win64-filename }}
-	- uses: actions/upload-artifact@v1
-	  with:
-		name: love-build
-		path: ${{ steps.love-build.outputs.love-filename }}
+	build_game:
+		- uses: actions/checkout@v2
+		# Build the applications
+		- uses: nhartland/love-build@v1-beta2
+		  with:
+		   app_name: 'Gravigator'
+		   love_version: '11.3'
+		# Upload the built applications
+		- uses: actions/upload-artifact@v1
+		  with:
+			name: built-applications
+			path: 'release'
+		- uses: actions/upload-artifact@v1
+		  with:
+			name: macos-build
+			path: ${{ steps.love-build.outputs.macos-filename }}
+		- uses: actions/upload-artifact@v1
+		  with:
+			name: win32-build
+			path: ${{ steps.love-build.outputs.win32-filename }}
+		- uses: actions/upload-artifact@v1
+		  with:
+			name: win64-build
+			path: ${{ steps.love-build.outputs.win64-filename }}
+		- uses: actions/upload-artifact@v1
+		  with:
+			name: love-build
+			path: ${{ steps.love-build.outputs.love-filename }}
